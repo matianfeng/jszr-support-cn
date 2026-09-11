@@ -1,0 +1,38 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.cache/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
+
+# Cloudflare local state
+.wrangler/
+.dev.vars
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local archives
+*.zip
+*.7z
+*.rar
