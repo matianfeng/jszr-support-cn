@@ -2,39 +2,39 @@
 
 ## 项目类型
 
-本项目为纯静态网站，无需安装 Node.js、数据库或其他运行依赖。
+本项目采用 Cloudflare Worker 后端入口 + Static Assets 架构。网页由 `env.ASSETS.fetch(request)` 提供，并绑定 Cloudflare R2 存储桶。
 
 ## 入口页面
 
-- `index.html`：中文首页
-- `en.html`：英文首页
-- `category.html`：中文资料二级页
-- `category-en.html`：英文资料二级页
+- `public/index.html`：中文首页
+- `public/en.html`：英文首页
+- `public/category.html`：中文资料二级页
+- `public/category-en.html`：英文资料二级页
+- `src/index.js`：Cloudflare Worker 入口
+- `wrangler.jsonc`：Worker、Static Assets 与 R2 绑定配置
 
 ## 部署方法
 
-将压缩包解压后，把目录内的全部文件和 `assets` 文件夹原样上传到网站根目录即可。
-
-可部署到 Nginx、Apache、IIS、对象存储静态托管或其他静态网站服务。默认入口设置为 `index.html`。
-
-## Nginx 最简示例
-
-```nginx
-server {
-    listen 80;
-    server_name example.com;
-    root /var/www/support-portal;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
+```bash
+npm install
+npm run check
+npm run deploy
 ```
+
+GitHub 自动部署时，Cloudflare 的部署命令可配置为 `npx wrangler deploy`。
+
+## Cloudflare 配置
+
+- Worker 名称：`jszrwz`
+- Worker 入口：`src/index.js`
+- 静态资源目录：`public`
+- 静态资源绑定：`ASSETS`
+- R2 存储桶：`jszr-support-files`
+- R2 绑定变量：`SUPPORT_FILES`
 
 ## 注意事项
 
-- 上传时需保留当前目录结构和文件名。
+- 部署时需保留当前目录结构和文件名。
 - 当前“联系支持”邮箱为 `support@example.com`，正式发布前请替换为真实邮箱。
 - 当前文档内容和下载文件为前端演示数据，后续可在 `app.js` 与 `app-en.js` 中接入真实资料地址或接口。
 - 网站路径包含中文不会影响源码，但服务器部署目录建议使用英文名称，例如 `support-portal`。
