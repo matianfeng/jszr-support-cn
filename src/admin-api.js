@@ -8,8 +8,8 @@ const RESOURCE_TYPES = new Set(['document', 'sdk', 'firmware', 'video', 'faq', '
 const LANGUAGES = new Set(['zh-CN', 'en', 'bilingual']);
 const ALLOWED_EXTENSIONS = new Set(['pdf', 'zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'bin', 'fw', 'img', 'hex', 'deb', 'rpm', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov']);
 const ALLOWED_MIME_TYPES = new Set([
-  'application/pdf', 'application/zip', 'application/x-7z-compressed', 'application/vnd.rar',
-  'application/x-rar-compressed', 'application/x-tar', 'application/gzip', 'application/octet-stream',
+  'application/pdf', 'application/zip', 'application/x-zip-compressed', 'application/x-7z-compressed', 'application/vnd.rar',
+  'application/x-rar-compressed', 'application/x-tar', 'application/gzip', 'application/x-gzip', 'application/octet-stream',
   'image/jpeg', 'image/png', 'image/webp', 'image/gif',
   'video/mp4', 'video/webm', 'video/quicktime', 'application/vnd.debian.binary-package', 'application/x-rpm',
 ]);
