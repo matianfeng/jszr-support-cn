@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/index.js && node --check public/app.js && node --check public/app-en.js && wrangler deploy --dry-run --outdir dist",
+    "check": "node --check src/index.js && node --check public/app.js && node --check public/app-en.js && node --check public/category-page.js && node --check public/data/categories.js && node --check public/data/demo-content.js && node scripts/validate-categories.mjs && wrangler deploy --dry-run --outdir dist",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
