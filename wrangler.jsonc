@@ -12,5 +12,12 @@
       "binding": "SUPPORT_FILES",
       "bucket_name": "jszr-support-files"
     }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wendang",
+      "database_id": "58e83767-3833-45f0-b394-2ef4e149e422"
+    }
   ]
 }

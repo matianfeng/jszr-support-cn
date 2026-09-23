@@ -31,6 +31,8 @@ GitHub 自动部署时，Cloudflare 的部署命令可配置为 `npx wrangler de
 - 静态资源绑定：`ASSETS`
 - R2 存储桶：`jszr-support-files`
 - R2 绑定变量：`SUPPORT_FILES`
+- D1 数据库：`wendang`
+- D1 绑定变量：`DB`
 
 ## 注意事项
 
