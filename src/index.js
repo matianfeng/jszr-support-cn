@@ -1,4 +1,6 @@
 import '../public/data/categories.js';
+import { verifyAccessRequest } from './access-auth.js';
+import { handleAdminApi } from './admin-api.js';
 
 const VALID_CATEGORIES = new Set(
   globalThis.SUPPORT_CATEGORIES
@@ -114,6 +116,17 @@ async function handleApi(request, env, pathname) {
 export default {
   async fetch(request, env) {
     const pathname = new URL(request.url).pathname;
+    if (pathname === '/admin') {
+      return Response.redirect(`${new URL(request.url).origin}/admin/`, 308);
+    }
+    if (pathname.startsWith('/api/admin/')) {
+      const authentication = await verifyAccessRequest(request, env);
+      if (!authentication.ok) {
+        return json({ success: false, error: { code: 'access_denied', message: authentication.message } }, authentication.status);
+      }
+      request.adminIdentity = authentication.identity;
+      return handleAdminApi(request, env, pathname);
+    }
     if (pathname === '/api' || pathname.startsWith('/api/')) {
       return handleApi(request, env, pathname);
     }
