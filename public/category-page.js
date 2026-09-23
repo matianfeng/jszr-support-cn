@@ -6,14 +6,16 @@
   const text = lang === 'zh' ? {
     productNames: { yingao: '影獒', tieao: '铁獒' },
     allCount: (count) => `共 ${count} 条内容`,
-    expand: '全部展开', collapse: '全部收起', preview: '预览', download: '下载',
+    expand: '全部展开', collapse: '全部收起', preview: '预览', download: '下载', openLink: '打开链接',
+    loadingTitle: '正在加载资料', loadingBody: '请稍候…', loadErrorTitle: '资料加载失败', loadErrorBody: '请稍后重试。',
     emptyTitle: '该栏目暂无资料', emptyBody: '资料将在后续接入，请浏览其他栏目或联系技术支持。',
     previewLabel: '文档预览', updated: '更新于', overview: '文档说明', preparation: '使用前准备', steps: '操作步骤',
     previewNote: '当前为前端演示资料，后续可接入D1中的真实文章、PDF、固件、视频和工具记录。',
   } : {
     productNames: { yingao: 'Yingao', tieao: 'Tieao' },
     allCount: (count) => `${count} resources`,
-    expand: 'Expand all', collapse: 'Collapse all', preview: 'Preview', download: 'Download',
+    expand: 'Expand all', collapse: 'Collapse all', preview: 'Preview', download: 'Download', openLink: 'Open link',
+    loadingTitle: 'Loading resources', loadingBody: 'Please wait…', loadErrorTitle: 'Failed to load resources', loadErrorBody: 'Please try again later.',
     emptyTitle: 'No resources in this category', emptyBody: 'Resources will be added later. Browse another category or contact support.',
     previewLabel: 'DOCUMENT PREVIEW', updated: 'Updated', overview: 'Overview', preparation: 'Preparation', steps: 'Steps',
     previewNote: 'This is demonstration content. Real articles, PDFs, firmware, videos and tools can be connected from D1 later.',
@@ -29,7 +31,6 @@
   };
 
   const nodes = globalThis.SUPPORT_CATEGORIES || [];
-  const content = globalThis.SUPPORT_DEMO_CONTENT || [];
   const params = new URLSearchParams(location.search);
   let productKey = ['yingao', 'tieao'].includes(params.get('product')) ? params.get('product') : 'yingao';
   const productNodes = nodes.filter((node) => node.product_key === productKey);
@@ -39,13 +40,16 @@
   if (!selected && legacyParent) selected = categories.find((node) => node.parent_key === legacyParent);
   if (!selected) selected = categories[0];
   let currentPreview = null;
+  let currentItems = [];
+  let requestController = null;
   document.querySelector('#category-search-input').value = params.get('q') || '';
 
   const nameOf = (node) => node[lang === 'zh' ? 'name_zh' : 'name_en'];
-  const titleOf = (item) => item[lang === 'zh' ? 'title_zh' : 'title_en'];
-  const descriptionOf = (item) => item[lang === 'zh' ? 'description_zh' : 'description_en'];
-  const tagOf = (item) => item[lang === 'zh' ? 'tag_zh' : 'tag_en'];
+  const titleOf = (item) => item.title;
+  const descriptionOf = (item) => item.summary || '';
+  const tagOf = (item) => item.resource_type;
   const parentOf = (node) => productNodes.find((item) => item.node_type === 'parent' && item.parent_key === node.parent_key);
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
 
   document.body.classList.add('product-category-page', `category-${productKey}`);
   const languageLink = document.querySelector('#language-link');
@@ -79,16 +83,54 @@
 
   function render() {
     const query = document.querySelector('#category-search-input').value.trim().toLowerCase();
-    let items = content.filter((item) => item.product_key === productKey && item.category_key === selected.category_key && `${titleOf(item)}${descriptionOf(item)}${tagOf(item)}`.toLowerCase().includes(query));
+    let items = currentItems.filter((item) => `${titleOf(item)}${descriptionOf(item)}${tagOf(item)}`.toLowerCase().includes(query));
     const sort = document.querySelector('#sort-select').value;
-    if (sort === 'newest') items.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    if (sort === 'newest') items.sort((a, b) => (b.published_at || '').localeCompare(a.published_at || ''));
     if (sort === 'title') items.sort((a, b) => titleOf(a).localeCompare(titleOf(b), lang === 'zh' ? 'zh-CN' : 'en'));
-    list.innerHTML = items.map((item) => `<article class="article-item"><span class="article-type">${tagOf(item)}</span><span class="article-info"><h3>${titleOf(item)}</h3><p>${descriptionOf(item)}</p></span><span class="article-meta">${item.version} · ${item.updated_at}</span><span class="article-actions"><button class="preview-button" type="button" data-preview="${item.id}">${text.preview}</button><button class="article-download" type="button" data-download="${item.id}">${text.download}</button></span></article>`).join('');
+    list.innerHTML = items.map((item) => {
+      const previewable = item.has_file && (item.resource_type === 'document' || item.resource_type === 'faq' || /^(application\/pdf|image\/|text\/)/.test(item.mime_type || ''));
+      const actions = [
+        previewable ? `<button class="preview-button" type="button" data-file-preview="${item.id}">${text.preview}</button>` : '',
+        item.has_file ? `<button class="article-download" type="button" data-download="${item.id}">${text.download}</button>` : '',
+        item.has_external_url ? `<button class="preview-button" type="button" data-external="${item.id}">${text.openLink}</button>` : '',
+        !item.has_file && !item.has_external_url ? `<button class="preview-button" type="button" data-preview="${item.id}">${text.preview}</button>` : '',
+      ].join('');
+      return `<article class="article-item"><span class="article-type">${escapeHtml(tagOf(item))}</span><span class="article-info"><h3>${escapeHtml(titleOf(item))}</h3><p>${escapeHtml(descriptionOf(item))}</p></span><span class="article-meta">${escapeHtml(item.version || '')}${item.published_at ? ` · ${escapeHtml(item.published_at)}` : ''}</span><span class="article-actions">${actions}</span></article>`;
+    }).join('');
     document.querySelector('#result-count').textContent = text.allCount(items.length);
     const empty = document.querySelector('#empty-state');
     empty.hidden = items.length !== 0;
     empty.querySelector('strong').textContent = text.emptyTitle;
     empty.querySelector('p').textContent = text.emptyBody;
+  }
+
+  function showState(title, body) {
+    list.innerHTML = '';
+    document.querySelector('#result-count').textContent = '';
+    const empty = document.querySelector('#empty-state');
+    empty.hidden = false;
+    empty.querySelector('strong').textContent = title;
+    empty.querySelector('p').textContent = body;
+  }
+
+  async function loadResources() {
+    if (requestController) requestController.abort();
+    requestController = new AbortController();
+    const controller = requestController;
+    currentItems = [];
+    showState(text.loadingTitle, text.loadingBody);
+    try {
+      const apiLang = lang === 'zh' ? 'zh-CN' : 'en';
+      const response = await fetch(`/api/resources?category=${encodeURIComponent(selected.category_key)}&lang=${encodeURIComponent(apiLang)}`, { signal: controller.signal, headers: { Accept: 'application/json' } });
+      const payload = await response.json();
+      if (!response.ok || !payload.success || !Array.isArray(payload.data)) throw new Error('Invalid API response');
+      if (controller !== requestController) return;
+      currentItems = payload.data;
+      render();
+    } catch (error) {
+      if (error.name === 'AbortError' || controller !== requestController) return;
+      showState(text.loadErrorTitle, text.loadErrorBody);
+    }
   }
 
   function selectCategory(categoryKey, push = true) {
@@ -103,30 +145,19 @@
     document.querySelector('#category-search-input').value = '';
     syncUrl(push);
     updateHeader();
-    render();
-  }
-
-  function documentText(item) {
-    if (lang === 'zh') return `${titleOf(item)}\n\n${descriptionOf(item)}\n\n版本：${item.version}\n更新日期：${item.updated_at}\n\n该文件为技术支持门户演示资料。`;
-    return `${titleOf(item)}\n\n${descriptionOf(item)}\n\nVersion: ${item.version}\nUpdated: ${item.updated_at}\n\nThis file is demonstration content from the technical support portal.`;
+    loadResources();
   }
 
   function download(item) {
-    const blob = new Blob([documentText(item)], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${titleOf(item)}-${item.version}.txt`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 500);
+    location.href = `/api/resources/${item.id}/file?download=1`;
   }
 
   function openPreview(item) {
     currentPreview = item;
     document.querySelector('#preview-title').textContent = titleOf(item);
-    document.querySelector('#preview-version').textContent = `${item.version} · ${text.updated} ${item.updated_at}`;
+    document.querySelector('#preview-version').textContent = `${item.version || ''}${item.published_at ? ` · ${text.updated} ${item.published_at}` : ''}`;
     document.querySelector('.preview-label').textContent = text.previewLabel;
-    document.querySelector('#preview-body').innerHTML = `<h3>${text.overview}</h3><p>${descriptionOf(item)}</p><div class="preview-note">${text.previewNote}</div><h3>${text.preparation}</h3><p>${lang === 'zh' ? '请确认设备状态正常，并选择与产品和软件版本匹配的资料。' : 'Confirm the device status and select resources matching the product and software version.'}</p><h3>${text.steps}</h3><p>${lang === 'zh' ? '按照资料说明完成相关操作，并验证运行结果。' : 'Follow the resource instructions and verify the result.'}</p>`;
+    document.querySelector('#preview-body').innerHTML = `<h3>${text.overview}</h3><p>${escapeHtml(descriptionOf(item) || (lang === 'zh' ? '暂无摘要。' : 'No summary available.'))}</p><div class="preview-note">${text.previewNote}</div>`;
     const modal = document.querySelector('#preview-modal');
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -149,9 +180,16 @@
   document.querySelector('#sort-select').addEventListener('change', render);
   list.addEventListener('click', (event) => {
     const preview = event.target.closest('[data-preview]');
+    const filePreview = event.target.closest('[data-file-preview]');
     const downloadButton = event.target.closest('[data-download]');
-    if (preview) openPreview(content.find((item) => item.id === preview.dataset.preview));
-    if (downloadButton) download(content.find((item) => item.id === downloadButton.dataset.download));
+    const external = event.target.closest('[data-external]');
+    if (preview) openPreview(currentItems.find((item) => String(item.id) === preview.dataset.preview));
+    if (filePreview) window.open(`/api/resources/${filePreview.dataset.filePreview}/file`, '_blank', 'noopener');
+    if (downloadButton) download(currentItems.find((item) => String(item.id) === downloadButton.dataset.download));
+    if (external) {
+      const item = currentItems.find((resource) => String(resource.id) === external.dataset.external);
+      if (item?.external_url) window.open(item.external_url, '_blank', 'noopener,noreferrer');
+    }
   });
   document.querySelector('#preview-modal').addEventListener('click', (event) => {
     if (event.target.closest('[data-close-preview]')) { event.currentTarget.hidden = true; document.body.style.overflow = ''; }
@@ -167,5 +205,5 @@
 
   syncUrl(false);
   updateHeader();
-  render();
+  loadResources();
 })();
