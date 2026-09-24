@@ -9,11 +9,28 @@ const icon = (name) => {
 const products = { yingao: { name: '影獒', model: 'YINGAO / 01', tagline: '全球首款15公斤级小型机器狗', image: 'assets/yingao.png', theme: 'yingao-theme' }, tieao: { name: '铁獒', model: 'TIEAO / 02', tagline: '业内首款轻体型、高负载、全防护的中型机器狗', image: 'assets/tieao.png', theme: 'tieao-theme' } };
 function initHome() {
   const grid = document.querySelector('#resource-grid'); if (!grid) return;
-  let activeProduct = 'yingao'; let switchTimer; const section = document.querySelector('#product-resources');
+  let activeProduct = 'yingao'; let switchTimer; let searchController; const section = document.querySelector('#product-resources');
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
   const descriptions = { documents: '产品手册、规格参数、使用指南等', sdk: 'SDK下载、开发指南、API文档等', firmware: '固件版本、发布说明、升级包等', video: '入门教程、功能演示、操作视频等', faq: '热门问题解答、故障排查、解决方案等', tools: '开发工具、配置软件、示例代码等' };
   const renderCards = () => { const nodes = globalThis.SUPPORT_CATEGORIES.filter((node) => node.product_key === activeProduct); grid.innerHTML = nodes.filter((node) => node.node_type === 'parent').sort((a, b) => a.sort_order - b.sort_order).map((parent) => { const first = nodes.find((node) => node.node_type === 'category' && node.parent_key === parent.parent_key); return `<a class="resource-card" href="category.html?product=${activeProduct}&category=${encodeURIComponent(first.category_key)}&lang=zh"><span class="card-icon">${icon(parent.parent_key)}</span><span class="card-copy"><h3>${parent.name_zh}</h3><p>${descriptions[parent.parent_key]}</p></span><span class="card-arrow">→</span></a>`; }).join(''); };
   const switchProduct = (id) => { if (!products[id] || id === activeProduct) return; activeProduct = id; const product = products[id], visual = document.querySelector('.product-visual'), image = document.querySelector('#product-image'); section.classList.remove('yingao-theme', 'tieao-theme'); section.classList.add(product.theme); document.querySelector('#selected-product-name').textContent = product.name; document.querySelector('#visual-model').textContent = product.model; document.querySelector('#product-tagline').textContent = product.tagline; document.querySelector('.product-switcher').classList.toggle('is-second', id === 'tieao'); document.querySelectorAll('.product-option').forEach((button) => { const active = button.dataset.product === id; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); }); clearTimeout(switchTimer); visual.classList.add('switching'); switchTimer = setTimeout(() => { image.src = product.image; image.alt = `${product.name}产品图`; visual.classList.remove('switching'); }, 220); renderCards(); };
   renderCards(); document.querySelectorAll('.product-option').forEach((button) => { button.addEventListener('mouseenter', () => switchProduct(button.dataset.product)); button.addEventListener('focus', () => switchProduct(button.dataset.product)); button.addEventListener('click', () => switchProduct(button.dataset.product)); });
-  document.querySelector('#search-form').addEventListener('submit', (event) => { event.preventDefault(); const query = document.querySelector('#search-input').value.trim(); if (!query) return document.querySelector('#search-input').focus(); const first = globalThis.SUPPORT_CATEGORIES.find((node) => node.product_key === activeProduct && node.node_type === 'category'); location.href = `category.html?product=${activeProduct}&category=${encodeURIComponent(first.category_key)}&lang=zh&q=${encodeURIComponent(query)}`; });
+  document.querySelector('#search-form').addEventListener('submit', async (event) => {
+    event.preventDefault(); const input = document.querySelector('#search-input'); const query = input.value.trim(); const message = document.querySelector('#search-message');
+    if (!query) return input.focus();
+    if (searchController) searchController.abort(); searchController = new AbortController(); message.textContent = '正在搜索正式资料…';
+    try {
+      const response = await fetch(`/api/resources/search?q=${encodeURIComponent(query)}&lang=zh-CN`, { signal: searchController.signal, headers: { Accept: 'application/json' } });
+      const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error || '搜索失败');
+      message.textContent = payload.count ? `找到 ${payload.count} 条资料` : '没有找到相关正式资料';
+      grid.innerHTML = payload.data.map((item) => {
+        const category = globalThis.SUPPORT_CATEGORIES.find((node) => node.category_key === item.category_key && node.product_key === item.product_key);
+        const productName = products[item.product_key]?.name || item.product_key;
+        const href = `category.html?product=${encodeURIComponent(item.product_key)}&category=${encodeURIComponent(item.category_key)}&lang=zh-CN&q=${encodeURIComponent(query)}`;
+        return `<a class="resource-card" href="${href}"><span class="card-copy"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(productName)} · ${escapeHtml(category?.name_zh || item.category_key)}${item.summary ? ` · ${escapeHtml(item.summary)}` : ''}</p></span><span class="card-arrow">→</span></a>`;
+      }).join('');
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (cause) { if (cause.name !== 'AbortError') message.textContent = '资料搜索失败，请稍后重试'; }
+  });
 }
 initHome();

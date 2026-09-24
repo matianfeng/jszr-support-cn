@@ -9,11 +9,28 @@ const icon = (name) => {
 const products = { yingao: { name: 'Yingao', model: 'YINGAO / 01', tagline: "The world's first compact robotic dog in the 15 kg class", image: 'assets/yingao.png', theme: 'yingao-theme' }, tieao: { name: 'Tieao', model: 'TIEAO / 02', tagline: 'The first mid-sized robotic dog combining low weight, high payload and full protection', image: 'assets/tieao.png', theme: 'tieao-theme' } };
 function initHome() {
   const grid = document.querySelector('#resource-grid'); if (!grid) return;
-  let activeProduct = 'yingao'; let switchTimer; const section = document.querySelector('#product-resources');
+  let activeProduct = 'yingao'; let switchTimer; let searchController; const section = document.querySelector('#product-resources');
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
   const descriptions = { documents: 'Manuals, specifications and user guides', sdk: 'SDK downloads, developer guides and APIs', firmware: 'Firmware releases, notes and upgrade packages', video: 'Getting started, demos and walkthroughs', faq: 'Answers, troubleshooting and solutions', tools: 'Developer tools, utilities and sample code' };
   const renderCards = () => { const nodes = globalThis.SUPPORT_CATEGORIES.filter((node) => node.product_key === activeProduct); grid.innerHTML = nodes.filter((node) => node.node_type === 'parent').sort((a, b) => a.sort_order - b.sort_order).map((parent) => { const first = nodes.find((node) => node.node_type === 'category' && node.parent_key === parent.parent_key); return `<a class="resource-card" href="category-en.html?product=${activeProduct}&category=${encodeURIComponent(first.category_key)}&lang=en"><span class="card-icon">${icon(parent.parent_key)}</span><span class="card-copy"><h3>${parent.name_en}</h3><p>${descriptions[parent.parent_key]}</p></span><span class="card-arrow">→</span></a>`; }).join(''); };
   const switchProduct = (id) => { if (!products[id] || id === activeProduct) return; activeProduct = id; const product = products[id], visual = document.querySelector('.product-visual'), image = document.querySelector('#product-image'); section.classList.remove('yingao-theme', 'tieao-theme'); section.classList.add(product.theme); document.querySelector('#selected-product-name').textContent = product.name; document.querySelector('#visual-model').textContent = product.model; document.querySelector('#product-tagline').textContent = product.tagline; document.querySelector('.product-switcher').classList.toggle('is-second', id === 'tieao'); document.querySelectorAll('.product-option').forEach((button) => { const active = button.dataset.product === id; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); }); clearTimeout(switchTimer); visual.classList.add('switching'); switchTimer = setTimeout(() => { image.src = product.image; image.alt = `${product.name} robotic dog`; visual.classList.remove('switching'); }, 220); renderCards(); };
   renderCards(); document.querySelectorAll('.product-option').forEach((button) => { button.addEventListener('mouseenter', () => switchProduct(button.dataset.product)); button.addEventListener('focus', () => switchProduct(button.dataset.product)); button.addEventListener('click', () => switchProduct(button.dataset.product)); });
-  document.querySelector('#search-form').addEventListener('submit', (event) => { event.preventDefault(); const query = document.querySelector('#search-input').value.trim(); if (!query) return document.querySelector('#search-input').focus(); const first = globalThis.SUPPORT_CATEGORIES.find((node) => node.product_key === activeProduct && node.node_type === 'category'); location.href = `category-en.html?product=${activeProduct}&category=${encodeURIComponent(first.category_key)}&lang=en&q=${encodeURIComponent(query)}`; });
+  document.querySelector('#search-form').addEventListener('submit', async (event) => {
+    event.preventDefault(); const input = document.querySelector('#search-input'); const query = input.value.trim(); const message = document.querySelector('#search-message');
+    if (!query) return input.focus();
+    if (searchController) searchController.abort(); searchController = new AbortController(); message.textContent = 'Searching published resources…';
+    try {
+      const response = await fetch(`/api/resources/search?q=${encodeURIComponent(query)}&lang=en`, { signal: searchController.signal, headers: { Accept: 'application/json' } });
+      const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error || 'Search failed');
+      message.textContent = payload.count ? `${payload.count} resources found` : 'No published resources found';
+      grid.innerHTML = payload.data.map((item) => {
+        const category = globalThis.SUPPORT_CATEGORIES.find((node) => node.category_key === item.category_key && node.product_key === item.product_key);
+        const productName = products[item.product_key]?.name || item.product_key;
+        const href = `category-en.html?product=${encodeURIComponent(item.product_key)}&category=${encodeURIComponent(item.category_key)}&lang=en&q=${encodeURIComponent(query)}`;
+        return `<a class="resource-card" href="${href}"><span class="card-copy"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(productName)} · ${escapeHtml(category?.name_en || item.category_key)}${item.summary ? ` · ${escapeHtml(item.summary)}` : ''}</p></span><span class="card-arrow">→</span></a>`;
+      }).join('');
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (cause) { if (cause.name !== 'AbortError') message.textContent = 'Search failed. Please try again later.'; }
+  });
 }
 initHome();

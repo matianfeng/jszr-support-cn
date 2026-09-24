@@ -78,6 +78,34 @@ async function listResources(request, env) {
   return json({ success: true, data, count: data.length });
 }
 
+async function searchResources(request, env) {
+  if (request.method !== 'GET') return error('Method not allowed', 405, { Allow: 'GET' });
+  const url = new URL(request.url);
+  const query = (url.searchParams.get('q') || '').trim();
+  const lang = url.searchParams.get('lang') || 'zh-CN';
+  if (!query) return error('q is required', 400);
+  if (query.length > 100) return error('q is too long', 400);
+  if (!['zh-CN', 'en'].includes(lang)) return error('lang must be zh-CN or en', 400);
+  const localizedFields = lang === 'en'
+    ? "COALESCE(NULLIF(title_en, ''), title_zh) AS title, COALESCE(NULLIF(summary_en, ''), summary_zh) AS summary"
+    : 'title_zh AS title, summary_zh AS summary';
+  const escaped = query.replace(/[\\%_]/g, (character) => `\\${character}`);
+  const term = `%${escaped}%`;
+  const result = await env.DB.prepare(`
+    SELECT id, category_key, product_key, resource_type, ${localizedFields}, version, published_at
+    FROM resources
+    WHERE status = ? AND (
+      title_zh LIKE ? ESCAPE '\\' OR title_en LIKE ? ESCAPE '\\' OR
+      summary_zh LIKE ? ESCAPE '\\' OR summary_en LIKE ? ESCAPE '\\' OR
+      version LIKE ? ESCAPE '\\' OR file_name LIKE ? ESCAPE '\\'
+    )
+    ORDER BY sort_order ASC, published_at DESC, id DESC
+    LIMIT 50
+  `).bind('published', term, term, term, term, term, term).all();
+  const data = (result.results || []).filter((row) => VALID_CATEGORIES.has(row.category_key) && row.category_key.startsWith(`${row.product_key}.`));
+  return json({ success: true, data, count: data.length });
+}
+
 async function readResourceFile(request, env, id) {
   if (request.method !== 'GET') return error('Method not allowed', 405, { Allow: 'GET' });
   const resource = await env.DB.prepare(`
@@ -103,6 +131,7 @@ async function readResourceFile(request, env, id) {
 
 async function handleApi(request, env, pathname) {
   try {
+    if (pathname === '/api/resources/search') return await searchResources(request, env);
     if (pathname === '/api/resources') return await listResources(request, env);
     const fileMatch = pathname.match(/^\/api\/resources\/(\d+)\/file$/);
     if (fileMatch) return await readResourceFile(request, env, fileMatch[1]);

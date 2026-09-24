@@ -32,11 +32,13 @@
 
   const nodes = globalThis.SUPPORT_CATEGORIES || [];
   const params = new URLSearchParams(location.search);
-  let productKey = ['yingao', 'tieao'].includes(params.get('product')) ? params.get('product') : 'yingao';
+  const requestedCategory = params.get('category');
+  const exactCategory = nodes.find((node) => node.node_type === 'category' && node.category_key === requestedCategory);
+  let productKey = exactCategory?.product_key || (['yingao', 'tieao'].includes(params.get('product')) ? params.get('product') : 'yingao');
   const productNodes = nodes.filter((node) => node.product_key === productKey);
   const categories = productNodes.filter((node) => node.node_type === 'category');
   const legacyParent = { docs: 'documents', sdk: 'sdk', firmware: 'firmware', video: 'video', faq: 'faq', tools: 'tools' }[params.get('type')];
-  let selected = categories.find((node) => node.category_key === params.get('category'));
+  let selected = exactCategory || categories.find((node) => node.category_key === requestedCategory);
   if (!selected && legacyParent) selected = categories.find((node) => node.parent_key === legacyParent);
   if (!selected) selected = categories[0];
   let currentPreview = null;
@@ -53,8 +55,9 @@
 
   document.body.classList.add('product-category-page', `category-${productKey}`);
   const languageLink = document.querySelector('#language-link');
+  const pageLangParam = lang === 'zh' ? 'zh-CN' : 'en';
   const otherPage = lang === 'zh' ? 'category-en.html' : 'category.html';
-  languageLink.href = `${otherPage}?product=${productKey}&category=${encodeURIComponent(selected.category_key)}&lang=${lang === 'zh' ? 'en' : 'zh'}`;
+  languageLink.href = `${otherPage}?product=${productKey}&category=${encodeURIComponent(selected.category_key)}&lang=${lang === 'zh' ? 'en' : 'zh-CN'}`;
 
   const tree = document.querySelector('#document-tree');
   const parents = productNodes.filter((node) => node.node_type === 'parent').sort((a, b) => a.sort_order - b.sort_order);
@@ -65,9 +68,9 @@
   }).join('');
 
   function syncUrl(push) {
-    const url = `${lang === 'zh' ? 'category.html' : 'category-en.html'}?product=${productKey}&category=${encodeURIComponent(selected.category_key)}&lang=${lang}`;
+    const url = `${lang === 'zh' ? 'category.html' : 'category-en.html'}?product=${productKey}&category=${encodeURIComponent(selected.category_key)}&lang=${pageLangParam}`;
     history[push ? 'pushState' : 'replaceState']({ category: selected.category_key }, '', url);
-    languageLink.href = `${otherPage}?product=${productKey}&category=${encodeURIComponent(selected.category_key)}&lang=${lang === 'zh' ? 'en' : 'zh'}`;
+    languageLink.href = `${otherPage}?product=${productKey}&category=${encodeURIComponent(selected.category_key)}&lang=${lang === 'zh' ? 'en' : 'zh-CN'}`;
   }
 
   function updateHeader() {
