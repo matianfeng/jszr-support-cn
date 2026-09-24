@@ -144,9 +144,15 @@ async function rateLimitLogin(request, env) {
     await new Promise((resolve) => setTimeout(resolve, 750));
     return true;
   }
-  const client = request.headers.get('CF-Connecting-IP') || 'unknown-client';
-  const result = await env.LOGIN_RATE_LIMITER.limit({ key: `admin-login:${client}` });
-  return result.success;
+  try {
+    const client = request.headers.get('CF-Connecting-IP') || 'unknown-client';
+    const result = await env.LOGIN_RATE_LIMITER.limit({ key: `admin-login:${client}` });
+    return result.success;
+  } catch (cause) {
+    console.error('Login rate limiter unavailable', { reason: cause instanceof Error ? cause.message : 'unknown' });
+    await new Promise((resolve) => setTimeout(resolve, 750));
+    return true;
+  }
 }
 
 async function login(request, env) {
@@ -194,8 +200,13 @@ async function me(request, env) {
 }
 
 export async function handleAuthApi(request, env, pathname) {
-  if (pathname === '/api/admin/auth/login') return login(request, env);
-  if (pathname === '/api/admin/auth/logout') return logout(request, env);
-  if (pathname === '/api/admin/auth/me') return me(request, env);
-  return authError('NOT_FOUND', '认证接口不存在', 404);
+  try {
+    if (pathname === '/api/admin/auth/login') return await login(request, env);
+    if (pathname === '/api/admin/auth/logout') return await logout(request, env);
+    if (pathname === '/api/admin/auth/me') return await me(request, env);
+    return authError('NOT_FOUND', '认证接口不存在', 404);
+  } catch (cause) {
+    console.error('Admin authentication request failed', { route: pathname, reason: cause instanceof Error ? cause.message : 'unknown' });
+    return authError('INTERNAL_ERROR', '认证服务暂时不可用', 500);
+  }
 }
