@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import { generatePasswordHash, handleAuthApi, verifyAdminSession, verifyCsrf, verifyOrigin } from '../src/admin-auth.js';
+
+const username = `admin-${crypto.randomUUID()}`;
+const password = `T!${crypto.randomUUID()}a9`;
+const sessionSecret = crypto.randomUUID() + crypto.randomUUID();
+const passwordHash = await generatePasswordHash(password);
+const limiter = { count: 0, async limit() { this.count += 1; return { success: this.count <= 5 }; } };
+const env = { ADMIN_USERNAME: username, ADMIN_PASSWORD_HASH: passwordHash, ADMIN_SESSION_SECRET: sessionSecret, LOGIN_RATE_LIMITER: limiter };
+const origin = 'https://admin.test';
+const loginRequest = (body, extra = {}) => new Request(`${origin}/api/admin/auth/login`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', 'CF-Connecting-IP': '192.0.2.1', ...extra }, body: JSON.stringify(body) });
+
+const unconfigured = await handleAuthApi(loginRequest({ username, password }), {}, '/api/admin/auth/login');
+assert.equal(unconfigured.status, 503);
+assert.equal((await unconfigured.json()).error.code, 'AUTH_NOT_CONFIGURED');
+assert.equal((await handleAuthApi(loginRequest({ username: 'wrong', password }), env, '/api/admin/auth/login')).status, 401);
+assert.equal((await handleAuthApi(loginRequest({ username, password: 'wrong' }), env, '/api/admin/auth/login')).status, 401);
+const login = await handleAuthApi(loginRequest({ username, password }), env, '/api/admin/auth/login');
+assert.equal(login.status, 200);
+const cookieHeader = login.headers.get('Set-Cookie');
+assert.match(cookieHeader, /admin_session=/); assert.match(cookieHeader, /HttpOnly/); assert.match(cookieHeader, /Secure/); assert.match(cookieHeader, /SameSite=Strict/); assert.match(cookieHeader, /Path=\//);
+const cookie = cookieHeader.split(';')[0];
+const authenticatedRequest = new Request(`${origin}/api/admin/auth/me`, { headers: { Cookie: cookie } });
+const session = await verifyAdminSession(authenticatedRequest, env);
+assert.equal(session.ok, true); assert.equal(session.username, username);
+const forged = await verifyAdminSession(new Request(`${origin}/api/admin/auth/me`, { headers: { Cookie: `${cookie}x` } }), env);
+assert.equal(forged.ok, false);
+const [name, value] = cookie.split('='); const altered = `${name}=${value.slice(0, -3)}abc`;
+assert.equal((await verifyAdminSession(new Request(`${origin}/`, { headers: { Cookie: altered } }), env)).ok, false);
+assert.equal((await verifyAdminSession(authenticatedRequest, env, Math.floor(Date.now() / 1000) + 9 * 60 * 60)).ok, false);
+assert.equal(verifyOrigin(new Request(`${origin}/x`, { method: 'POST', headers: { Origin: 'https://evil.test' } })), false);
+assert.equal(verifyCsrf(new Request(`${origin}/x`, { headers: { 'X-CSRF-Token': 'wrong' } }), session), false);
+assert.equal(verifyCsrf(new Request(`${origin}/x`, { headers: { 'X-CSRF-Token': session.csrfToken } }), session), true);
+const logout = await handleAuthApi(new Request(`${origin}/api/admin/auth/logout`, { method: 'POST', headers: { Origin: origin, Cookie: cookie, 'X-CSRF-Token': session.csrfToken } }), env, '/api/admin/auth/logout');
+assert.equal(logout.status, 200); assert.match(logout.headers.get('Set-Cookie'), /Max-Age=0/);
+const limitedEnv = { ...env, LOGIN_RATE_LIMITER: { async limit() { return { success: false }; } } };
+assert.equal((await handleAuthApi(loginRequest({ username, password }), limitedEnv, '/api/admin/auth/login')).status, 429);
+
+console.log('PASS: missing configuration, invalid credentials and rate limiting');
+console.log('PASS: PBKDF2 login and secure HttpOnly session cookie');
+console.log('PASS: forged, modified and expired sessions are rejected');
+console.log('PASS: same-origin and CSRF validation plus logout cookie clearing');

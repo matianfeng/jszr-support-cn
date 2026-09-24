@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { verifyAccessRequest } from '../src/access-auth.js';
 import { createResource, updateResource, validateUpload, handleAdminApi, MAX_UPLOAD_BYTES } from '../src/admin-api.js';
 
 function formRequest(fields, file, headers = {}) {
@@ -13,11 +12,6 @@ const base = {
   product_key: 'yingao', category_key: 'yingao.documents.quick-start', resource_type: 'document',
   title_zh: '测试资料', language: 'zh-CN', sort_order: '0', status: 'draft',
 };
-
-const noConfig = await verifyAccessRequest(new Request('http://local/api/admin/resources'), {});
-assert.equal(noConfig.status, 403);
-const forged = await verifyAccessRequest(new Request('http://local/api/admin/resources', { headers: { 'Cf-Access-Jwt-Assertion': 'forged.token' } }), { ACCESS_TEAM_DOMAIN: 'example.cloudflareaccess.com', ACCESS_AUD: 'test-aud' });
-assert.equal(forged.status, 401);
 
 const noContent = await createResource(formRequest(base), {});
 assert.equal(noContent.status, 400);
@@ -74,7 +68,6 @@ const missingEnv = { DB: { prepare() { return { bind() { return { async first() 
 const missingResponse = await updateResource(formRequest(base), missingEnv, 999);
 assert.equal(missingResponse.status, 404);
 
-console.log('PASS: admin auth defaults closed and forged headers are rejected');
 console.log('PASS: form, category, product, title, content, size and type validation');
 console.log('PASS: create rollback removes new object after D1 failure');
 console.log('PASS: update rollback removes replacement and preserves old object');

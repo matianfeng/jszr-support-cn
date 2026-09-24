@@ -6,14 +6,14 @@
   <meta name="robots" content="noindex,nofollow">
   <title>资料管理后台 · 具身智人</title>
   <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/admin/admin-auth.css">
 </head>
 <body>
   <header class="topbar">
     <div><strong>资料管理后台</strong><span>具身智人技术支持中心</span></div>
-    <a href="/" target="_blank" rel="noopener">查看门户网站</a>
+    <div class="account"><span id="admin-account"></span><a href="/" target="_blank" rel="noopener">查看门户网站</a><button id="logout-button" type="button">退出登录</button></div>
   </header>
   <main>
-    <section class="notice" id="auth-notice" hidden></section>
     <section class="panel filters">
       <div class="section-heading"><div><h1>资料列表</h1><p>管理D1资料记录及其关联的R2文件</p></div><button class="primary" id="create-button">新增资料</button></div>
       <form id="filter-form" class="filter-grid">

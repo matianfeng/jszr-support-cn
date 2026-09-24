@@ -164,7 +164,7 @@ export async function createResource(request, env) {
         fileData.mime, fields.status, fields.sortOrder, publishedAt, now, now).run();
     if (!result.success || !result.meta?.last_row_id) throw new Error('database_insert_failed');
     const row = await findResource(env, result.meta.last_row_id);
-    console.info('Admin created resource', { id: row.id, actor: request.adminIdentity?.email || request.adminIdentity?.subject || 'access-user' });
+    console.info('Admin created resource', { id: row.id, actor: request.adminIdentity?.username || 'admin' });
     return json({ success: true, data: publicRecord(row) }, 201);
   } catch (cause) {
     if (uploadedKey) { try { await env.SUPPORT_FILES.delete(uploadedKey); } catch (rollbackError) { console.error('R2 rollback failed after create error', { keyHash: await hashKey(uploadedKey), reason: String(rollbackError) }); } }

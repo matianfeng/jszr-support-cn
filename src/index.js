@@ -1,5 +1,5 @@
 import '../public/data/categories.js';
-import { verifyAccessRequest } from './access-auth.js';
+import { handleAuthApi, verifyAdminSession, verifyCsrf, verifyOrigin } from './admin-auth.js';
 import { handleAdminApi } from './admin-api.js';
 
 const VALID_CATEGORIES = new Set(
@@ -115,16 +115,26 @@ async function handleApi(request, env, pathname) {
 
 export default {
   async fetch(request, env) {
-    const pathname = new URL(request.url).pathname;
-    if (pathname === '/admin') {
-      return Response.redirect(`${new URL(request.url).origin}/admin/`, 308);
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+    if (pathname === '/admin' || pathname === '/admin/' || pathname === '/admin/index.html') {
+      const session = await verifyAdminSession(request, env);
+      if (!session.ok) return Response.redirect(`${url.origin}/admin/login?next=%2Fadmin%2F`, 302);
+      return env.ASSETS.fetch(pathname === '/admin/' ? request : new Request(`${url.origin}/admin/`, request));
+    }
+    if (pathname === '/admin/login' || pathname === '/admin/login/' || pathname === '/admin/login.html') {
+      const session = await verifyAdminSession(request, env);
+      if (session.ok) return Response.redirect(`${url.origin}/admin/`, 302);
+      return env.ASSETS.fetch(pathname === '/admin/login' ? request : new Request(`${url.origin}/admin/login`, request));
     }
     if (pathname.startsWith('/api/admin/')) {
-      const authentication = await verifyAccessRequest(request, env);
-      if (!authentication.ok) {
-        return json({ success: false, error: { code: 'access_denied', message: authentication.message } }, authentication.status);
+      if (pathname.startsWith('/api/admin/auth/')) return handleAuthApi(request, env, pathname);
+      const session = await verifyAdminSession(request, env);
+      if (!session.ok) return json({ success: false, error: { code: session.configured ? 'AUTH_REQUIRED' : 'AUTH_NOT_CONFIGURED', message: session.configured ? '请先登录' : '后台认证尚未配置' } }, session.configured ? 401 : 503);
+      if (!['GET', 'HEAD'].includes(request.method) && (!verifyOrigin(request) || !verifyCsrf(request, session))) {
+        return json({ success: false, error: { code: 'CSRF_INVALID', message: '安全校验失败' } }, 403);
       }
-      request.adminIdentity = authentication.identity;
+      request.adminIdentity = { username: session.username };
       return handleAdminApi(request, env, pathname);
     }
     if (pathname === '/api' || pathname.startsWith('/api/')) {

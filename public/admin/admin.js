@@ -14,14 +14,19 @@
   const deleteDialog = document.querySelector('#delete-dialog');
   let resources = [];
   let submitStatus = 'draft';
+  let csrfToken = '';
 
   const escape = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
   const date = (value) => value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '—';
   function toast(message) { const element = document.querySelector('#toast'); element.textContent = message; element.classList.add('show'); setTimeout(() => element.classList.remove('show'), 2600); }
 
   async function api(path, options) {
-    const response = await fetch(path, { ...options, headers: { Accept: 'application/json', ...(options?.headers || {}) } });
+    const method = (options?.method || 'GET').toUpperCase();
+    const headers = { Accept: 'application/json', ...(options?.headers || {}) };
+    if (!['GET', 'HEAD'].includes(method) && csrfToken) headers['X-CSRF-Token'] = csrfToken;
+    const response = await fetch(path, { ...options, headers });
     const payload = await response.json().catch(() => ({ success: false, error: { message: '服务器返回了无效响应' } }));
+    if (response.status === 401) { location.replace('/admin/login?next=%2Fadmin%2F'); throw new Error('登录状态已失效'); }
     if (!response.ok || !payload.success) throw Object.assign(new Error(payload.error?.message || '请求失败'), { status: response.status });
     return payload;
   }
@@ -58,8 +63,8 @@
     listState.hidden = false; listState.textContent = '正在加载资料…'; rows.innerHTML = '';
     const query = new URLSearchParams(new FormData(filterForm)); query.delete('parent');
     [...query.keys()].forEach((key) => { if (!query.get(key)) query.delete(key); });
-    try { const payload = await api(`/api/admin/resources?${query}`); resources = payload.data; render(); document.querySelector('#auth-notice').hidden = true; }
-    catch (cause) { listState.textContent = cause.status === 401 || cause.status === 403 ? '管理功能尚未完成Cloudflare Access认证配置' : cause.message; const notice = document.querySelector('#auth-notice'); notice.textContent = listState.textContent; notice.hidden = false; }
+    try { const payload = await api(`/api/admin/resources?${query}`); resources = payload.data; render(); }
+    catch (cause) { listState.textContent = cause.message; }
   }
 
   function openEditor(item) {
@@ -89,5 +94,20 @@
     if (button.dataset.action === 'status') { try { await api(`/api/admin/resources/${item.id}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: button.dataset.status }) }); toast('状态已更新'); await load(); } catch (cause) { toast(cause.message); } }
     if (button.dataset.action === 'delete') { deleteDialog.showModal(); const result = await new Promise((resolve) => deleteDialog.addEventListener('close', () => resolve(deleteDialog.returnValue), { once: true })); if (result !== 'confirm') return; try { const payload = await api(`/api/admin/resources/${item.id}`, { method: 'DELETE' }); toast(payload.warning?.message || '资料已删除'); await load(); } catch (cause) { toast(cause.message); } }
   });
-  load();
+  document.querySelector('#logout-button').addEventListener('click', async () => {
+    try { await api('/api/admin/auth/logout', { method: 'POST' }); } catch (cause) { if (cause.status !== 401) toast(cause.message); }
+    resources = []; csrfToken = ''; location.replace('/admin/login');
+  });
+
+  async function initialize() {
+    try {
+      const identity = await api('/api/admin/auth/me');
+      csrfToken = identity.data.csrfToken;
+      document.querySelector('#admin-account').textContent = identity.data.username;
+      await load();
+    } catch (cause) {
+      if (cause.status !== 401) { listState.hidden = false; listState.textContent = cause.message; }
+    }
+  }
+  initialize();
 })();
