@@ -173,12 +173,22 @@ async function login(request, env) {
   const password = typeof body.password === 'string' ? body.password : '';
   if (!username || !password || username.length > MAX_USERNAME_LENGTH || password.length > MAX_PASSWORD_LENGTH) return authError('INVALID_CREDENTIALS', '账号或密码错误', 401);
   const usernameMatches = constantTimeEqual(encoder.encode(username), encoder.encode(env.ADMIN_USERNAME));
-  const passwordMatches = await verifyPassword(password, env.ADMIN_PASSWORD_HASH);
+  let passwordMatches;
+  try { passwordMatches = await verifyPassword(password, env.ADMIN_PASSWORD_HASH); }
+  catch (cause) {
+    console.error('Password verification unavailable', { reason: cause instanceof Error ? cause.message : 'unknown' });
+    return authError('AUTH_CRYPTO_UNAVAILABLE', '认证服务暂时不可用', 500);
+  }
   if (!usernameMatches || !passwordMatches) {
     console.warn('Admin login failed', { client: request.headers.get('CF-Ray') || 'local' });
     return authError('INVALID_CREDENTIALS', '账号或密码错误', 401);
   }
-  const session = await createSession(env.ADMIN_USERNAME, env.ADMIN_SESSION_SECRET);
+  let session;
+  try { session = await createSession(env.ADMIN_USERNAME, env.ADMIN_SESSION_SECRET); }
+  catch (cause) {
+    console.error('Session signing unavailable', { reason: cause instanceof Error ? cause.message : 'unknown' });
+    return authError('SESSION_SIGNING_UNAVAILABLE', '认证服务暂时不可用', 500);
+  }
   console.info('Admin login succeeded', { client: request.headers.get('CF-Ray') || 'local' });
   return apiJson({ success: true, data: { username: env.ADMIN_USERNAME, csrfToken: session.payload.csrf } }, 200, { 'Set-Cookie': sessionCookie(session.token) });
 }
