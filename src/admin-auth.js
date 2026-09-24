@@ -43,7 +43,7 @@ function parsePasswordHash(value) {
   const parts = String(value || '').split(':');
   if (parts.length !== 5 || parts[0] !== 'v1' || parts[1] !== 'pbkdf2-sha256') return null;
   const iterations = Number(parts[2]);
-  if (!Number.isSafeInteger(iterations) || iterations < 210000 || iterations > 2000000) return null;
+  if (!Number.isSafeInteger(iterations) || iterations < 100000 || iterations > 100000) return null;
   try {
     const salt = base64Decode(parts[3]);
     const hash = base64Decode(parts[4]);
@@ -58,7 +58,7 @@ async function derivePassword(password, salt, iterations, length = 32) {
   return new Uint8Array(bits);
 }
 
-export async function generatePasswordHash(password, iterations = 210000, salt = crypto.getRandomValues(new Uint8Array(16))) {
+export async function generatePasswordHash(password, iterations = 100000, salt = crypto.getRandomValues(new Uint8Array(16))) {
   const derived = await derivePassword(password, salt, iterations);
   return `v1:pbkdf2-sha256:${iterations}:${base64Encode(salt)}:${base64Encode(derived)}`;
 }
