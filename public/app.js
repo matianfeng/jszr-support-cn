@@ -9,7 +9,7 @@ const icon = (name) => {
 const products = { yingao: { name: '影獒', model: 'YINGAO / 01', tagline: '全球首款15公斤级小型机器狗', image: 'assets/yingao.png', theme: 'yingao-theme' }, tieao: { name: '铁獒', model: 'TIEAO / 02', tagline: '业内首款轻体型、高负载、全防护的中型机器狗', image: 'assets/tieao.png', theme: 'tieao-theme' } };
 function initHome() {
   const grid = document.querySelector('#resource-grid'); if (!grid) return;
-  let activeProduct = 'yingao'; let switchTimer; let searchController; const section = document.querySelector('#product-resources');
+  let activeProduct = 'yingao'; let switchTimer; let searchController; let searchTimer; const section = document.querySelector('#product-resources');
   const searchDropdown = document.querySelector('#search-results-dropdown'); const searchList = document.querySelector('#search-results-list'); const searchToggle = document.querySelector('#search-results-toggle');
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
   const descriptions = { documents: '产品手册、规格参数、使用指南等', sdk: 'SDK下载、开发指南、API文档等', firmware: '固件版本、发布说明、升级包等', video: '入门教程、功能演示、操作视频等', faq: '热门问题解答、故障排查、解决方案等', tools: '开发工具、配置软件、示例代码等' };
@@ -17,9 +17,10 @@ function initHome() {
   const switchProduct = (id) => { if (!products[id] || id === activeProduct) return; activeProduct = id; const product = products[id], visual = document.querySelector('.product-visual'), image = document.querySelector('#product-image'); section.classList.remove('yingao-theme', 'tieao-theme'); section.classList.add(product.theme); document.querySelector('#selected-product-name').textContent = product.name; document.querySelector('#visual-model').textContent = product.model; document.querySelector('#product-tagline').textContent = product.tagline; document.querySelector('.product-switcher').classList.toggle('is-second', id === 'tieao'); document.querySelectorAll('.product-option').forEach((button) => { const active = button.dataset.product === id; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); }); clearTimeout(switchTimer); visual.classList.add('switching'); switchTimer = setTimeout(() => { image.src = product.image; image.alt = `${product.name}产品图`; visual.classList.remove('switching'); }, 220); renderCards(); };
   renderCards(); document.querySelectorAll('.product-option').forEach((button) => { button.addEventListener('mouseenter', () => switchProduct(button.dataset.product)); button.addEventListener('focus', () => switchProduct(button.dataset.product)); button.addEventListener('click', () => switchProduct(button.dataset.product)); });
   searchToggle.addEventListener('click', () => { const expanded = searchDropdown.classList.toggle('expanded'); searchToggle.setAttribute('aria-expanded', String(expanded)); searchToggle.setAttribute('aria-label', expanded ? '收起搜索结果' : '展开搜索结果'); searchToggle.querySelector('span').textContent = expanded ? '收起' : '展开'; });
-  document.querySelector('#search-form').addEventListener('submit', async (event) => {
-    event.preventDefault(); const input = document.querySelector('#search-input'); const query = input.value.trim(); const message = document.querySelector('#search-message');
-    if (!query) return input.focus();
+  const input = document.querySelector('#search-input'); const message = document.querySelector('#search-message');
+  const runSearch = async () => {
+    const query = input.value.trim();
+    if (!query) { if (searchController) searchController.abort(); searchDropdown.hidden = true; searchList.innerHTML = ''; return; }
     if (searchController) searchController.abort(); searchController = new AbortController(); searchDropdown.hidden = false; searchDropdown.classList.remove('expanded'); searchToggle.setAttribute('aria-expanded', 'false'); searchToggle.setAttribute('aria-label', '展开搜索结果'); searchToggle.querySelector('span').textContent = '展开'; message.textContent = '正在搜索正式资料…'; searchList.innerHTML = '<div class="search-results-empty">正在加载…</div>';
     try {
       const response = await fetch(`/api/resources/search?q=${encodeURIComponent(query)}&lang=zh-CN`, { signal: searchController.signal, headers: { Accept: 'application/json' } });
@@ -32,6 +33,8 @@ function initHome() {
       }).join('') : '<div class="search-results-empty">暂无匹配的正式资料</div>';
       searchList.scrollTop = 0;
     } catch (cause) { if (cause.name !== 'AbortError') { message.textContent = '资料搜索失败，请稍后重试'; searchList.innerHTML = '<div class="search-results-empty">加载失败，请稍后重试</div>'; } }
-  });
+  };
+  input.addEventListener('input', () => { clearTimeout(searchTimer); if (!input.value.trim()) { if (searchController) searchController.abort(); searchDropdown.hidden = true; searchList.innerHTML = ''; return; } searchTimer = setTimeout(runSearch, 280); });
+  document.querySelector('#search-form').addEventListener('submit', (event) => { event.preventDefault(); clearTimeout(searchTimer); runSearch(); });
 }
 initHome();

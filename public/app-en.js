@@ -9,7 +9,7 @@ const icon = (name) => {
 const products = { yingao: { name: 'Yingao', model: 'YINGAO / 01', tagline: "The world's first compact robotic dog in the 15 kg class", image: 'assets/yingao.png', theme: 'yingao-theme' }, tieao: { name: 'Tieao', model: 'TIEAO / 02', tagline: 'The first mid-sized robotic dog combining low weight, high payload and full protection', image: 'assets/tieao.png', theme: 'tieao-theme' } };
 function initHome() {
   const grid = document.querySelector('#resource-grid'); if (!grid) return;
-  let activeProduct = 'yingao'; let switchTimer; let searchController; const section = document.querySelector('#product-resources');
+  let activeProduct = 'yingao'; let switchTimer; let searchController; let searchTimer; const section = document.querySelector('#product-resources');
   const searchDropdown = document.querySelector('#search-results-dropdown'); const searchList = document.querySelector('#search-results-list'); const searchToggle = document.querySelector('#search-results-toggle');
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
   const descriptions = { documents: 'Manuals, specifications and user guides', sdk: 'SDK downloads, developer guides and APIs', firmware: 'Firmware releases, notes and upgrade packages', video: 'Getting started, demos and walkthroughs', faq: 'Answers, troubleshooting and solutions', tools: 'Developer tools, utilities and sample code' };
@@ -17,9 +17,10 @@ function initHome() {
   const switchProduct = (id) => { if (!products[id] || id === activeProduct) return; activeProduct = id; const product = products[id], visual = document.querySelector('.product-visual'), image = document.querySelector('#product-image'); section.classList.remove('yingao-theme', 'tieao-theme'); section.classList.add(product.theme); document.querySelector('#selected-product-name').textContent = product.name; document.querySelector('#visual-model').textContent = product.model; document.querySelector('#product-tagline').textContent = product.tagline; document.querySelector('.product-switcher').classList.toggle('is-second', id === 'tieao'); document.querySelectorAll('.product-option').forEach((button) => { const active = button.dataset.product === id; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); }); clearTimeout(switchTimer); visual.classList.add('switching'); switchTimer = setTimeout(() => { image.src = product.image; image.alt = `${product.name} robotic dog`; visual.classList.remove('switching'); }, 220); renderCards(); };
   renderCards(); document.querySelectorAll('.product-option').forEach((button) => { button.addEventListener('mouseenter', () => switchProduct(button.dataset.product)); button.addEventListener('focus', () => switchProduct(button.dataset.product)); button.addEventListener('click', () => switchProduct(button.dataset.product)); });
   searchToggle.addEventListener('click', () => { const expanded = searchDropdown.classList.toggle('expanded'); searchToggle.setAttribute('aria-expanded', String(expanded)); searchToggle.setAttribute('aria-label', expanded ? 'Collapse search results' : 'Expand search results'); searchToggle.querySelector('span').textContent = expanded ? 'Collapse' : 'Expand'; });
-  document.querySelector('#search-form').addEventListener('submit', async (event) => {
-    event.preventDefault(); const input = document.querySelector('#search-input'); const query = input.value.trim(); const message = document.querySelector('#search-message');
-    if (!query) return input.focus();
+  const input = document.querySelector('#search-input'); const message = document.querySelector('#search-message');
+  const runSearch = async () => {
+    const query = input.value.trim();
+    if (!query) { if (searchController) searchController.abort(); searchDropdown.hidden = true; searchList.innerHTML = ''; return; }
     if (searchController) searchController.abort(); searchController = new AbortController(); searchDropdown.hidden = false; searchDropdown.classList.remove('expanded'); searchToggle.setAttribute('aria-expanded', 'false'); searchToggle.setAttribute('aria-label', 'Expand search results'); searchToggle.querySelector('span').textContent = 'Expand'; message.textContent = 'Searching published resources…'; searchList.innerHTML = '<div class="search-results-empty">Loading…</div>';
     try {
       const response = await fetch(`/api/resources/search?q=${encodeURIComponent(query)}&lang=en`, { signal: searchController.signal, headers: { Accept: 'application/json' } });
@@ -32,6 +33,8 @@ function initHome() {
       }).join('') : '<div class="search-results-empty">No matching published resources</div>';
       searchList.scrollTop = 0;
     } catch (cause) { if (cause.name !== 'AbortError') { message.textContent = 'Search failed. Please try again later.'; searchList.innerHTML = '<div class="search-results-empty">Unable to load results. Please try again later.</div>'; } }
-  });
+  };
+  input.addEventListener('input', () => { clearTimeout(searchTimer); if (!input.value.trim()) { if (searchController) searchController.abort(); searchDropdown.hidden = true; searchList.innerHTML = ''; return; } searchTimer = setTimeout(runSearch, 280); });
+  document.querySelector('#search-form').addEventListener('submit', (event) => { event.preventDefault(); clearTimeout(searchTimer); runSearch(); });
 }
 initHome();
