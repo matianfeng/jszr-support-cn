@@ -26,7 +26,10 @@
           <input id="search-input" type="search" placeholder="输入产品型号、资料名称或问题关键词" aria-label="搜索技术资料" autocomplete="off">
           <button type="submit">搜索资料</button>
         </form>
-        <div class="search-message" id="search-message" aria-live="polite"></div>
+        <section class="search-results-dropdown" id="search-results-dropdown" hidden aria-label="搜索结果">
+          <div class="search-results-header"><span class="search-message" id="search-message" aria-live="polite"></span><button class="search-results-toggle" id="search-results-toggle" type="button" aria-expanded="false" aria-label="展开搜索结果"><span>展开</span><i aria-hidden="true"></i></button></div>
+          <div class="search-results-list" id="search-results-list"></div>
+        </section>
       </div>
     </section>
 
