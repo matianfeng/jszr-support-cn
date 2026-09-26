@@ -5,7 +5,7 @@ const VALID_CATEGORIES = new Set(globalThis.SUPPORT_CATEGORIES.filter((node) => 
 const PRODUCT_KEYS = new Set(['yingao', 'tieao']);
 const STATUSES = new Set(['draft', 'published', 'unpublished']);
 const RESOURCE_TYPES = new Set(['document', 'sdk', 'firmware', 'video', 'faq', 'tool', 'link']);
-const LANGUAGES = new Set(['zh-CN', 'en', 'bilingual']);
+const LANGUAGES = new Set(['zh-CN', 'en']);
 const ALLOWED_EXTENSIONS = new Set(['pdf', 'zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'bin', 'fw', 'img', 'hex', 'deb', 'rpm', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov']);
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf', 'application/zip', 'application/x-zip-compressed', 'application/x-7z-compressed', 'application/vnd.rar',
@@ -96,14 +96,19 @@ function parseFields(form, existing = null) {
   if (!STATUSES.has(status)) throw Object.assign(new Error('状态不合法'), { code: 'invalid_status' });
   const language = cleanText(form.get('language'), 20) || 'zh-CN';
   if (!LANGUAGES.has(language)) throw Object.assign(new Error('资料语言不合法'), { code: 'invalid_language' });
-  let titleZh;
-  try { titleZh = cleanText(form.get('title_zh'), 300, true); } catch { throw Object.assign(new Error('中文标题不能为空且不能超过300字'), { code: 'invalid_title' }); }
+  let titleZh; let titleEn; let summaryZh; let summaryEn;
+  if (language === 'zh-CN') {
+    try { titleZh = cleanText(form.get('title_zh'), 300, true); } catch { throw Object.assign(new Error('中文标题不能为空且不能超过300字'), { code: 'invalid_title' }); }
+    titleEn = null; summaryZh = cleanText(form.get('summary_zh'), 4000); summaryEn = null;
+  } else {
+    try { titleEn = cleanText(form.get('title_en'), 300, true); } catch { throw Object.assign(new Error('英文标题不能为空且不能超过300字'), { code: 'invalid_title' }); }
+    titleZh = titleEn; summaryZh = null; summaryEn = cleanText(form.get('summary_en'), 4000);
+  }
   let externalUrl;
   try { externalUrl = safeExternalUrl(form.get('external_url')); } catch { throw Object.assign(new Error('外部链接必须是HTTP或HTTPS地址'), { code: 'invalid_url' }); }
   return {
     productKey, categoryKey, resourceType, status, language, titleZh, externalUrl,
-    titleEn: cleanText(form.get('title_en'), 300), summaryZh: cleanText(form.get('summary_zh'), 4000),
-    summaryEn: cleanText(form.get('summary_en'), 4000), version: cleanText(form.get('version'), 100),
+    titleEn, summaryZh, summaryEn, version: cleanText(form.get('version'), 100),
     sortOrder: parseInteger(form.get('sort_order')),
   };
 }
@@ -127,10 +132,12 @@ async function listResources(request, env) {
   const product = url.searchParams.get('product');
   const category = url.searchParams.get('category');
   const status = url.searchParams.get('status');
+  const language = url.searchParams.get('language');
   const keyword = url.searchParams.get('keyword')?.trim();
   if (product) { if (!PRODUCT_KEYS.has(product)) return fail('产品筛选值不合法'); where.push('product_key = ?'); values.push(product); }
   if (category) { if (!VALID_CATEGORIES.has(category)) return fail('栏目筛选值不合法'); where.push('category_key = ?'); values.push(category); }
   if (status) { if (!STATUSES.has(status)) return fail('状态筛选值不合法'); where.push('status = ?'); values.push(status); }
+  if (language) { if (!LANGUAGES.has(language)) return fail('语言筛选值不合法'); where.push('language = ?'); values.push(language); }
   if (keyword) { where.push('(title_zh LIKE ? OR title_en LIKE ? OR summary_zh LIKE ? OR summary_en LIKE ?)'); const term = `%${keyword.slice(0, 100)}%`; values.push(term, term, term, term); }
   const sql = `SELECT * FROM resources ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY updated_at DESC, id DESC LIMIT 500`;
   const result = await env.DB.prepare(sql).bind(...values).all();

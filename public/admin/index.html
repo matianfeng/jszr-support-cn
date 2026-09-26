@@ -7,6 +7,7 @@
   <title>资料管理后台 · 具身智人</title>
   <link rel="stylesheet" href="/admin/admin.css">
   <link rel="stylesheet" href="/admin/admin-auth.css">
+  <style>.language-notice{padding:10px 12px;border:1px solid #cfe0ff;border-radius:9px;background:#f3f7ff;color:#315584;font-size:13px}</style>
 </head>
 <body>
   <header class="topbar">
@@ -21,6 +22,7 @@
         <label>父目录<select name="parent"><option value="">全部父目录</option></select></label>
         <label>末级栏目<select name="category"><option value="">全部末级栏目</option></select></label>
         <label>状态<select name="status"><option value="">全部状态</option><option value="draft">草稿</option><option value="published">已发布</option><option value="unpublished">已下架</option></select></label>
+        <label>语言<select name="language"><option value="">全部语言</option><option value="zh-CN">中文资料</option><option value="en">英文资料</option></select></label>
         <label class="keyword">关键词<input name="keyword" maxlength="100" placeholder="标题或摘要"></label>
         <button type="submit">筛选</button>
       </form>
@@ -40,11 +42,12 @@
         <label>父目录<span>*</span><select name="parent_key" required><option value="">请选择</option></select></label>
         <label class="wide">末级栏目<span>*</span><select name="category_key" required><option value="">请选择</option></select></label>
         <label>资料类型<span>*</span><select name="resource_type" required><option value="document">文档</option><option value="sdk">SDK</option><option value="firmware">固件</option><option value="video">视频</option><option value="faq">常见问题</option><option value="tool">工具</option><option value="link">外部链接</option></select></label>
-        <label>资料语言<select name="language"><option value="zh-CN">中文</option><option value="en">英文</option><option value="bilingual">中英双语</option></select></label>
-        <label class="wide">中文标题<span>*</span><input name="title_zh" maxlength="300" required></label>
-        <label class="wide">英文标题<input name="title_en" maxlength="300"></label>
-        <label class="wide">中文摘要<textarea name="summary_zh" maxlength="4000" rows="3"></textarea></label>
-        <label class="wide">英文摘要<textarea name="summary_en" maxlength="4000" rows="3"></textarea></label>
+        <label>资料语言<span>*</span><select name="language" required><option value="zh-CN">中文资料（仅中文站）</option><option value="en">英文资料（仅英文站）</option></select></label>
+        <div class="wide language-notice" id="language-notice">当前新增中文资料，只会显示在中文站。</div>
+        <label class="wide" data-language-field="zh-CN">中文标题<span>*</span><input name="title_zh" maxlength="300" required></label>
+        <label class="wide" data-language-field="en" hidden>英文标题<span>*</span><input name="title_en" maxlength="300" disabled></label>
+        <label class="wide" data-language-field="zh-CN">中文摘要<textarea name="summary_zh" maxlength="4000" rows="3"></textarea></label>
+        <label class="wide" data-language-field="en" hidden>英文摘要<textarea name="summary_en" maxlength="4000" rows="3" disabled></textarea></label>
         <label>版本号<input name="version" maxlength="100" placeholder="例如 V1.2.0"></label>
         <label>排序值<input name="sort_order" type="number" min="-1000000" max="1000000" value="0"></label>
         <label class="wide">外部链接<input name="external_url" type="url" maxlength="2048" placeholder="https://..."></label>

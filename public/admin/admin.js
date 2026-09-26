@@ -6,6 +6,7 @@
   const products = { yingao: '影獒', tieao: '铁獒' };
   const typeLabels = { document: '文档', sdk: 'SDK', firmware: '固件', video: '视频', faq: '常见问题', tool: '工具', link: '外部链接' };
   const statusLabels = { draft: '草稿', published: '已发布', unpublished: '已下架' };
+  const languageLabels = { 'zh-CN': '中文资料', en: '英文资料' };
   const filterForm = document.querySelector('#filter-form');
   const editor = document.querySelector('#editor-dialog');
   const form = document.querySelector('#resource-form');
@@ -49,7 +50,7 @@
 
   function render() {
     rows.innerHTML = resources.map((item) => `<tr>
-      <td><strong>${escape(item.title_zh)}</strong><span class="sub">${escape(item.title_en || '')}</span></td>
+      <td><strong>${escape(item.language === 'en' ? item.title_en : item.title_zh)}</strong><span class="sub">${escape(languageLabels[item.language] || item.language)}</span></td>
       <td>${escape(products[item.product_key])}<span class="sub">${escape(labels[item.category_key] || item.category_key)}</span></td>
       <td>${escape(typeLabels[item.resource_type] || item.resource_type)}</td><td>${escape(item.version || '—')}</td>
       <td>${escape(item.file_name || '—')}</td><td><span class="badge ${item.status}">${escape(statusLabels[item.status])}</span></td>
@@ -67,6 +68,18 @@
     catch (cause) { listState.textContent = cause.message; }
   }
 
+  function syncLanguageFields() {
+    const language = form.elements.language.value;
+    form.querySelectorAll('[data-language-field]').forEach((container) => {
+      const active = container.dataset.languageField === language;
+      container.hidden = !active;
+      container.querySelectorAll('input,textarea').forEach((control) => { control.disabled = !active; control.required = active && control.name.startsWith('title_'); });
+    });
+    document.querySelector('#language-notice').textContent = language === 'en'
+      ? '当前新增英文资料，只会显示在英文站。'
+      : '当前新增中文资料，只会显示在中文站。';
+  }
+
   function openEditor(item) {
     form.reset(); form.elements.id.value = item?.id || ''; document.querySelector('#editor-title').textContent = item ? '编辑资料' : '新增资料'; document.querySelector('#form-error').hidden = true;
     if (item) {
@@ -75,10 +88,11 @@
       fillCategories(item.product_key, categoryNode?.parent_key, form.elements.category_key); form.elements.category_key.value = item.category_key;
       document.querySelector('#file-help').textContent = item.file_name ? `当前文件：${item.file_name}。不选择新文件时保留原文件。` : '当前无文件；文件和外部链接至少填写一个。';
     } else { fillParents('', form.elements.parent_key); fillCategories('', '', form.elements.category_key); document.querySelector('#file-help').textContent = '单个文件不超过100MB；文件和外部链接至少填写一个。'; }
-    editor.showModal();
+    syncLanguageFields(); editor.showModal();
   }
 
   document.querySelector('#create-button').addEventListener('click', () => openEditor());
+  form.elements.language.addEventListener('change', syncLanguageFields);
   document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => editor.close()));
   filterForm.addEventListener('submit', (event) => { event.preventDefault(); load(); });
   form.querySelectorAll('button[type="submit"]').forEach((button) => button.addEventListener('click', () => { submitStatus = button.dataset.status; }));

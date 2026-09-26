@@ -51,7 +51,7 @@ async function listResources(request, env) {
   if (!['zh-CN', 'en'].includes(lang)) return error('lang must be zh-CN or en', 400);
 
   const localizedFields = lang === 'en'
-    ? "COALESCE(NULLIF(title_en, ''), title_zh) AS title, COALESCE(NULLIF(summary_en, ''), summary_zh) AS summary"
+    ? 'title_en AS title, summary_en AS summary'
     : 'title_zh AS title, summary_zh AS summary';
   const statement = env.DB.prepare(`
     SELECT
@@ -62,9 +62,9 @@ async function listResources(request, env) {
       CASE WHEN external_url IS NOT NULL AND length(trim(external_url)) > 0 THEN 1 ELSE 0 END AS has_external_url,
       external_url, published_at
     FROM resources
-    WHERE category_key = ? AND status = ?
+    WHERE category_key = ? AND status = ? AND language = ?
     ORDER BY sort_order ASC, published_at DESC, id DESC
-  `).bind(category, 'published');
+  `).bind(category, 'published', lang);
   const result = await statement.all();
   const data = (result.results || []).map((row) => {
     const externalUrl = safeExternalUrl(row.external_url);
@@ -87,21 +87,21 @@ async function searchResources(request, env) {
   if (query.length > 100) return error('q is too long', 400);
   if (!['zh-CN', 'en'].includes(lang)) return error('lang must be zh-CN or en', 400);
   const localizedFields = lang === 'en'
-    ? "COALESCE(NULLIF(title_en, ''), title_zh) AS title, COALESCE(NULLIF(summary_en, ''), summary_zh) AS summary"
+    ? 'title_en AS title, summary_en AS summary'
     : 'title_zh AS title, summary_zh AS summary';
   const escaped = query.replace(/[\\%_]/g, (character) => `\\${character}`);
   const term = `%${escaped}%`;
   const result = await env.DB.prepare(`
     SELECT id, category_key, product_key, resource_type, ${localizedFields}, version, published_at
     FROM resources
-    WHERE status = ? AND (
+    WHERE status = ? AND language = ? AND (
       title_zh LIKE ? ESCAPE '\\' OR title_en LIKE ? ESCAPE '\\' OR
       summary_zh LIKE ? ESCAPE '\\' OR summary_en LIKE ? ESCAPE '\\' OR
       version LIKE ? ESCAPE '\\' OR file_name LIKE ? ESCAPE '\\'
     )
     ORDER BY sort_order ASC, published_at DESC, id DESC
     LIMIT 50
-  `).bind('published', term, term, term, term, term, term).all();
+  `).bind('published', lang, term, term, term, term, term, term).all();
   const data = (result.results || []).filter((row) => VALID_CATEGORIES.has(row.category_key) && row.category_key.startsWith(`${row.product_key}.`));
   return json({ success: true, data, count: data.length });
 }
