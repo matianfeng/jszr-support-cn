@@ -73,6 +73,7 @@
     form.querySelectorAll('[data-language-field]').forEach((container) => {
       const active = container.dataset.languageField === language;
       container.hidden = !active;
+      container.style.display = active ? '' : 'none';
       container.querySelectorAll('input,textarea').forEach((control) => { control.disabled = !active; control.required = active && control.name.startsWith('title_'); });
     });
     document.querySelector('#language-notice').textContent = language === 'en'
