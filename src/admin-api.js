@@ -94,7 +94,8 @@ function parseFields(form, existing = null) {
   if (!validateCategory(productKey, categoryKey)) throw Object.assign(new Error('产品与末级栏目不匹配'), { code: 'invalid_category' });
   if (!RESOURCE_TYPES.has(resourceType)) throw Object.assign(new Error('资料类型不合法'), { code: 'invalid_resource_type' });
   if (!STATUSES.has(status)) throw Object.assign(new Error('状态不合法'), { code: 'invalid_status' });
-  const language = cleanText(form.get('language'), 20) || 'zh-CN';
+  const language = cleanText(form.get('language'), 20);
+  if (!language) throw Object.assign(new Error('请先选择资料语言'), { code: 'invalid_language' });
   if (!LANGUAGES.has(language)) throw Object.assign(new Error('资料语言不合法'), { code: 'invalid_language' });
   let titleZh; let titleEn; let summaryZh; let summaryEn;
   if (language === 'zh-CN') {

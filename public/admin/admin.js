@@ -77,7 +77,9 @@
     });
     document.querySelector('#language-notice').textContent = language === 'en'
       ? '当前新增英文资料，只会显示在英文站。'
-      : '当前新增中文资料，只会显示在中文站。';
+      : language === 'zh-CN'
+        ? '当前新增中文资料，只会显示在中文站。'
+        : '请先选择资料语言，再填写对应语言的标题和摘要。';
   }
 
   function openEditor(item) {
