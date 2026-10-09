@@ -89,19 +89,40 @@ async function searchResources(request, env) {
   const localizedFields = lang === 'en'
     ? 'title_en AS title, summary_en AS summary'
     : 'title_zh AS title, summary_zh AS summary';
-  const escaped = query.replace(/[\\%_]/g, (character) => `\\${character}`);
-  const term = `%${escaped}%`;
-  const result = await env.DB.prepare(`
-    SELECT id, category_key, product_key, resource_type, ${localizedFields}, version, published_at
-    FROM resources
-    WHERE status = ? AND language = ? AND (
-      title_zh LIKE ? ESCAPE '\\' OR title_en LIKE ? ESCAPE '\\' OR
-      summary_zh LIKE ? ESCAPE '\\' OR summary_en LIKE ? ESCAPE '\\' OR
-      version LIKE ? ESCAPE '\\' OR file_name LIKE ? ESCAPE '\\'
-    )
-    ORDER BY sort_order ASC, published_at DESC, id DESC
-    LIMIT 50
-  `).bind('published', lang, term, term, term, term, term, term).all();
+  const productAliases = [
+    { key: 'yingao', pattern: /影獒|yingao/ig },
+    { key: 'tieao', pattern: /铁獒|tieao/ig },
+  ];
+  const matchedProduct = productAliases.find(({ pattern }) => { pattern.lastIndex = 0; return pattern.test(query); });
+  const textQuery = matchedProduct ? query.replace(matchedProduct.pattern, ' ').trim() : query;
+  const searchFields = `(title_zh LIKE ? ESCAPE '\\' OR title_en LIKE ? ESCAPE '\\' OR
+    summary_zh LIKE ? ESCAPE '\\' OR summary_en LIKE ? ESCAPE '\\' OR
+    version LIKE ? ESCAPE '\\' OR file_name LIKE ? ESCAPE '\\')`;
+  let statement;
+  if (matchedProduct && !textQuery) {
+    statement = env.DB.prepare(`
+      SELECT id, category_key, product_key, resource_type, ${localizedFields}, version, published_at
+      FROM resources
+      WHERE status = ? AND language = ? AND product_key = ?
+      ORDER BY sort_order ASC, published_at DESC, id DESC
+      LIMIT 50
+    `).bind('published', lang, matchedProduct.key);
+  } else {
+    const escaped = textQuery.replace(/[\\%_]/g, (character) => `\\${character}`);
+    const term = `%${escaped}%`;
+    const productClause = matchedProduct ? ' AND product_key = ?' : '';
+    const bindings = matchedProduct
+      ? ['published', lang, matchedProduct.key, term, term, term, term, term, term]
+      : ['published', lang, term, term, term, term, term, term];
+    statement = env.DB.prepare(`
+      SELECT id, category_key, product_key, resource_type, ${localizedFields}, version, published_at
+      FROM resources
+      WHERE status = ? AND language = ?${productClause} AND ${searchFields}
+      ORDER BY sort_order ASC, published_at DESC, id DESC
+      LIMIT 50
+    `).bind(...bindings);
+  }
+  const result = await statement.all();
   const data = (result.results || []).filter((row) => VALID_CATEGORIES.has(row.category_key) && row.category_key.startsWith(`${row.product_key}.`));
   return json({ success: true, data, count: data.length });
 }
