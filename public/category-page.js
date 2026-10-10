@@ -56,6 +56,16 @@
   const tagOf = (item) => item.resource_type;
   const parentOf = (node) => productNodes.find((item) => item.node_type === 'parent' && item.parent_key === node.parent_key);
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+  const formatPublishedAt = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('zh-CN', {
+      timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(date).map((part) => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+  };
 
   document.body.classList.add('product-category-page', `category-${productKey}`);
   const languageLink = document.querySelector('#language-link');
@@ -102,7 +112,8 @@
         item.has_external_url ? `<button class="preview-button" type="button" data-external="${item.id}">${text.openLink}</button>` : '',
         !item.has_file && !item.has_external_url ? `<button class="preview-button" type="button" data-preview="${item.id}">${text.preview}</button>` : '',
       ].join('');
-      return `<article class="article-item"><span class="article-type">${escapeHtml(tagOf(item))}</span><span class="article-info"><h3>${escapeHtml(titleOf(item))}</h3><p>${escapeHtml(descriptionOf(item))}</p></span><span class="article-meta">${escapeHtml(item.version || '')}${item.published_at ? ` · ${escapeHtml(item.published_at)}` : ''}</span><span class="article-actions">${actions}</span></article>`;
+      const meta = [item.version, formatPublishedAt(item.published_at)].filter(Boolean).join(' · ');
+      return `<article class="article-item"><span class="article-type">${escapeHtml(tagOf(item))}</span><span class="article-info"><h3>${escapeHtml(titleOf(item))}</h3><p>${escapeHtml(descriptionOf(item))}</p></span><span class="article-meta">${escapeHtml(meta)}</span><span class="article-actions">${actions}</span></article>`;
     }).join('');
     document.querySelector('#result-count').textContent = text.allCount(items.length);
     const empty = document.querySelector('#empty-state');
@@ -194,7 +205,7 @@
   function openPreview(item) {
     currentPreview = item;
     document.querySelector('#preview-title').textContent = titleOf(item);
-    document.querySelector('#preview-version').textContent = `${item.version || ''}${item.published_at ? ` · ${text.updated} ${item.published_at}` : ''}`;
+    document.querySelector('#preview-version').textContent = [item.version, item.published_at ? `${text.updated} ${formatPublishedAt(item.published_at)}` : ''].filter(Boolean).join(' · ');
     document.querySelector('.preview-label').textContent = text.previewLabel;
     document.querySelector('#preview-body').innerHTML = `<h3>${text.overview}</h3><p>${escapeHtml(descriptionOf(item) || (lang === 'zh' ? '暂无摘要。' : 'No summary available.'))}</p><div class="preview-note">${text.previewNote}</div>`;
     const modal = document.querySelector('#preview-modal');
