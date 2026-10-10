@@ -7,6 +7,7 @@ const VALID_CATEGORIES = new Set(
     .filter((node) => node.node_type === 'category')
     .map((node) => node.category_key),
 );
+const PRODUCT_KEYS = new Set(['yingao', 'tieao']);
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -83,9 +84,11 @@ async function searchResources(request, env) {
   const url = new URL(request.url);
   const query = (url.searchParams.get('q') || '').trim();
   const lang = url.searchParams.get('lang') || 'zh-CN';
+  const requestedProduct = url.searchParams.get('product');
   if (!query) return error('q is required', 400);
   if (query.length > 100) return error('q is too long', 400);
   if (!['zh-CN', 'en'].includes(lang)) return error('lang must be zh-CN or en', 400);
+  if (requestedProduct && !PRODUCT_KEYS.has(requestedProduct)) return error('Invalid product', 400);
   const localizedFields = lang === 'en'
     ? 'title_en AS title, summary_en AS summary'
     : 'title_zh AS title, summary_zh AS summary';
@@ -95,27 +98,33 @@ async function searchResources(request, env) {
   ];
   const matchedProduct = productAliases.find(({ pattern }) => { pattern.lastIndex = 0; return pattern.test(query); });
   const textQuery = matchedProduct ? query.replace(matchedProduct.pattern, ' ').trim() : query;
+  const scopedProduct = requestedProduct || matchedProduct?.key || null;
+  const selectFields = `id, category_key, product_key, resource_type, ${localizedFields}, version, language,
+    file_name, file_size, mime_type,
+    CASE WHEN r2_key IS NOT NULL AND length(trim(r2_key)) > 0 THEN 1 ELSE 0 END AS has_file,
+    CASE WHEN external_url IS NOT NULL AND length(trim(external_url)) > 0 THEN 1 ELSE 0 END AS has_external_url,
+    external_url, published_at`;
   const searchFields = `(title_zh LIKE ? ESCAPE '\\' OR title_en LIKE ? ESCAPE '\\' OR
     summary_zh LIKE ? ESCAPE '\\' OR summary_en LIKE ? ESCAPE '\\' OR
     version LIKE ? ESCAPE '\\' OR file_name LIKE ? ESCAPE '\\')`;
   let statement;
-  if (matchedProduct && !textQuery) {
+  if (scopedProduct && !textQuery) {
     statement = env.DB.prepare(`
-      SELECT id, category_key, product_key, resource_type, ${localizedFields}, version, published_at
+      SELECT ${selectFields}
       FROM resources
       WHERE status = ? AND language = ? AND product_key = ?
       ORDER BY sort_order ASC, published_at DESC, id DESC
       LIMIT 50
-    `).bind('published', lang, matchedProduct.key);
+    `).bind('published', lang, scopedProduct);
   } else {
     const escaped = textQuery.replace(/[\\%_]/g, (character) => `\\${character}`);
     const term = `%${escaped}%`;
-    const productClause = matchedProduct ? ' AND product_key = ?' : '';
-    const bindings = matchedProduct
-      ? ['published', lang, matchedProduct.key, term, term, term, term, term, term]
+    const productClause = scopedProduct ? ' AND product_key = ?' : '';
+    const bindings = scopedProduct
+      ? ['published', lang, scopedProduct, term, term, term, term, term, term]
       : ['published', lang, term, term, term, term, term, term];
     statement = env.DB.prepare(`
-      SELECT id, category_key, product_key, resource_type, ${localizedFields}, version, published_at
+      SELECT ${selectFields}
       FROM resources
       WHERE status = ? AND language = ?${productClause} AND ${searchFields}
       ORDER BY sort_order ASC, published_at DESC, id DESC
@@ -123,7 +132,17 @@ async function searchResources(request, env) {
     `).bind(...bindings);
   }
   const result = await statement.all();
-  const data = (result.results || []).filter((row) => VALID_CATEGORIES.has(row.category_key) && row.category_key.startsWith(`${row.product_key}.`));
+  const data = (result.results || [])
+    .filter((row) => VALID_CATEGORIES.has(row.category_key) && row.category_key.startsWith(`${row.product_key}.`))
+    .map((row) => {
+      const externalUrl = safeExternalUrl(row.external_url);
+      return {
+        ...row,
+        has_file: Boolean(row.has_file),
+        has_external_url: Boolean(row.has_external_url) && Boolean(externalUrl),
+        external_url: externalUrl,
+      };
+    });
   return json({ success: true, data, count: data.length });
 }
 

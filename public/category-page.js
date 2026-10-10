@@ -6,6 +6,7 @@
   const text = lang === 'zh' ? {
     productNames: { yingao: '影獒', tieao: '铁獒' },
     allCount: (count) => `共 ${count} 条内容`,
+    searchResults: '搜索结果',
     expand: '全部展开', collapse: '全部收起', preview: '预览', download: '下载', openLink: '打开链接',
     loadingTitle: '正在加载资料', loadingBody: '请稍候…', loadErrorTitle: '资料加载失败', loadErrorBody: '请稍后重试。',
     emptyTitle: '该栏目暂无资料', emptyBody: '资料将在后续接入，请浏览其他栏目或联系技术支持。',
@@ -14,6 +15,7 @@
   } : {
     productNames: { yingao: 'Yingao', tieao: 'Tieao' },
     allCount: (count) => `${count} resources`,
+    searchResults: 'Search results',
     expand: 'Expand all', collapse: 'Collapse all', preview: 'Preview', download: 'Download', openLink: 'Open link',
     loadingTitle: 'Loading resources', loadingBody: 'Please wait…', loadErrorTitle: 'Failed to load resources', loadErrorBody: 'Please try again later.',
     emptyTitle: 'No resources in this category', emptyBody: 'Resources will be added later. Browse another category or contact support.',
@@ -43,7 +45,9 @@
   if (!selected) selected = categories[0];
   let currentPreview = null;
   let currentItems = [];
+  let categoryItems = [];
   let requestController = null;
+  let searchTimer = null;
   document.querySelector('#category-search-input').value = params.get('q') || '';
 
   const nameOf = (node) => node[lang === 'zh' ? 'name_zh' : 'name_en'];
@@ -128,6 +132,38 @@
       const payload = await response.json();
       if (!response.ok || !payload.success || !Array.isArray(payload.data)) throw new Error('Invalid API response');
       if (controller !== requestController) return;
+      categoryItems = payload.data;
+      currentItems = categoryItems;
+      if (document.querySelector('#category-search-input').value.trim()) searchResources();
+      else render();
+    } catch (error) {
+      if (error.name === 'AbortError' || controller !== requestController) return;
+      showState(text.loadErrorTitle, text.loadErrorBody);
+    }
+  }
+
+  async function searchResources() {
+    const input = document.querySelector('#category-search-input');
+    const query = input.value.trim();
+    if (!query) {
+      if (requestController) requestController.abort();
+      currentItems = categoryItems;
+      updateHeader();
+      render();
+      return;
+    }
+    if (requestController) requestController.abort();
+    requestController = new AbortController();
+    const controller = requestController;
+    currentItems = [];
+    document.querySelector('#content-title').textContent = text.searchResults;
+    showState(text.loadingTitle, text.loadingBody);
+    try {
+      const apiLang = lang === 'zh' ? 'zh-CN' : 'en';
+      const response = await fetch(`/api/resources/search?q=${encodeURIComponent(query)}&lang=${encodeURIComponent(apiLang)}&product=${encodeURIComponent(productKey)}`, { signal: controller.signal, headers: { Accept: 'application/json' } });
+      const payload = await response.json();
+      if (!response.ok || !payload.success || !Array.isArray(payload.data)) throw new Error('Invalid API response');
+      if (controller !== requestController) return;
       currentItems = payload.data;
       render();
     } catch (error) {
@@ -178,8 +214,12 @@
     groups.forEach((group) => group.classList.toggle('open', !allOpen));
     event.currentTarget.textContent = allOpen ? text.expand : text.collapse;
   });
-  document.querySelector('#category-search').addEventListener('submit', (event) => { event.preventDefault(); render(); });
-  document.querySelector('#category-search-input').addEventListener('input', render);
+  document.querySelector('#category-search').addEventListener('submit', (event) => { event.preventDefault(); clearTimeout(searchTimer); searchResources(); });
+  document.querySelector('#category-search-input').addEventListener('input', (event) => {
+    clearTimeout(searchTimer);
+    if (!event.currentTarget.value.trim()) searchResources();
+    else searchTimer = setTimeout(searchResources, 280);
+  });
   document.querySelector('#sort-select').addEventListener('change', render);
   list.addEventListener('click', (event) => {
     const preview = event.target.closest('[data-preview]');
