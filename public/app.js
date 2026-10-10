@@ -29,7 +29,8 @@ function initHome() {
       searchList.innerHTML = payload.data.length ? payload.data.map((item) => {
         const category = globalThis.SUPPORT_CATEGORIES.find((node) => node.category_key === item.category_key && node.product_key === item.product_key);
         const productName = products[item.product_key]?.name || item.product_key;
-        return `<article class="search-result-item"><span class="search-result-product">${escapeHtml(productName)}</span><span class="search-result-copy"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(category?.name_zh || item.category_key)}${item.summary ? ` · ${escapeHtml(item.summary)}` : ''}</p></span></article>`;
+        const href = `category.html?product=${encodeURIComponent(item.product_key)}&category=${encodeURIComponent(item.category_key)}&lang=zh-CN&q=${encodeURIComponent(item.title)}`;
+        return `<a class="search-result-item" href="${href}"><span class="search-result-product">${escapeHtml(productName)}</span><span class="search-result-copy"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(category?.name_zh || item.category_key)}${item.summary ? ` · ${escapeHtml(item.summary)}` : ''}</p></span><span class="search-result-arrow" aria-hidden="true">→</span></a>`;
       }).join('') : '<div class="search-results-empty">暂无匹配的正式资料</div>';
       searchList.scrollTop = 0;
     } catch (cause) { if (cause.name !== 'AbortError') { message.textContent = '资料搜索失败，请稍后重试'; searchList.innerHTML = '<div class="search-results-empty">加载失败，请稍后重试</div>'; } }

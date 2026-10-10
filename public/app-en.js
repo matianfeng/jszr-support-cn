@@ -29,7 +29,8 @@ function initHome() {
       searchList.innerHTML = payload.data.length ? payload.data.map((item) => {
         const category = globalThis.SUPPORT_CATEGORIES.find((node) => node.category_key === item.category_key && node.product_key === item.product_key);
         const productName = products[item.product_key]?.name || item.product_key;
-        return `<article class="search-result-item"><span class="search-result-product">${escapeHtml(productName)}</span><span class="search-result-copy"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(category?.name_en || item.category_key)}${item.summary ? ` · ${escapeHtml(item.summary)}` : ''}</p></span></article>`;
+        const href = `category-en.html?product=${encodeURIComponent(item.product_key)}&category=${encodeURIComponent(item.category_key)}&lang=en&q=${encodeURIComponent(item.title)}`;
+        return `<a class="search-result-item" href="${href}"><span class="search-result-product">${escapeHtml(productName)}</span><span class="search-result-copy"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(category?.name_en || item.category_key)}${item.summary ? ` · ${escapeHtml(item.summary)}` : ''}</p></span><span class="search-result-arrow" aria-hidden="true">→</span></a>`;
       }).join('') : '<div class="search-results-empty">No matching published resources</div>';
       searchList.scrollTop = 0;
     } catch (cause) { if (cause.name !== 'AbortError') { message.textContent = 'Search failed. Please try again later.'; searchList.innerHTML = '<div class="search-results-empty">Unable to load results. Please try again later.</div>'; } }
