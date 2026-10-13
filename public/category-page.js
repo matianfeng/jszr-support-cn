@@ -51,7 +51,10 @@
   const nameOf = (node) => node[lang === 'zh' ? 'name_zh' : 'name_en'];
   const titleOf = (item) => item.title;
   const descriptionOf = (item) => item.summary || '';
-  const tagOf = (item) => item.resource_type;
+  const typeLabels = lang === 'zh'
+    ? { document: '文档', sdk: 'SDK', firmware: '固件', video: '视频', faq: '常见问题', tool: '工具', link: '外部链接' }
+    : { document: 'Document', sdk: 'SDK', firmware: 'Firmware', video: 'Video', faq: 'FAQ', tool: 'Tool', link: 'External Link' };
+  const tagOf = (item) => typeLabels[item.resource_type] || item.resource_type;
   const parentOf = (node) => productNodes.find((item) => item.node_type === 'parent' && item.parent_key === node.parent_key);
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
   const formatPublishedAt = (value) => {
