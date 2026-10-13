@@ -9,7 +9,7 @@ function formRequest(fields, file, headers = {}) {
 }
 
 const base = {
-  product_key: 'yingao', category_key: 'yingao.documents.quick-start', resource_type: 'document',
+  product_key: 'yingao', category_key: 'yingao.documents.product-usage', resource_type: 'document',
   title_zh: '测试资料', language: 'zh-CN', sort_order: '0', status: 'draft',
 };
 

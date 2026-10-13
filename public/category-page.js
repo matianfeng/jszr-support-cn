@@ -27,9 +27,7 @@
     documents: '<svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h6"/></svg>',
     sdk: '<svg viewBox="0 0 24 24"><path d="m8 5-6 7 6 7M16 5l6 7-6 7M14 2l-4 20"/></svg>',
     firmware: '<svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 14H3v7h18v-7h-2"/></svg>',
-    video: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="m10 8 5 3-5 3zM8 21h8M12 17v4"/></svg>',
     faq: '<svg viewBox="0 0 24 24"><path d="M20 15a8 8 0 1 0-4 4l5 2-1-6Z"/><path d="M9.5 9a2.5 2.5 0 1 1 3.2 2.4c-.8.3-1.2.8-1.2 1.6M11.5 16h.01"/></svg>',
-    tools: '<svg viewBox="0 0 24 24"><path d="M14 7a5 5 0 0 0 6 6L10 23l-4-4 10-10a5 5 0 0 0-2-6v4Z"/><path d="m5 18-2 2 1 1 2-2"/></svg>',
   };
 
   const nodes = globalThis.SUPPORT_CATEGORIES || [];
@@ -39,7 +37,7 @@
   let productKey = exactCategory?.product_key || (['yingao', 'tieao'].includes(params.get('product')) ? params.get('product') : 'yingao');
   const productNodes = nodes.filter((node) => node.product_key === productKey);
   const categories = productNodes.filter((node) => node.node_type === 'category');
-  const legacyParent = { docs: 'documents', sdk: 'sdk', firmware: 'firmware', video: 'video', faq: 'faq', tools: 'tools' }[params.get('type')];
+  const legacyParent = { docs: 'documents', sdk: 'sdk', firmware: 'firmware', faq: 'faq' }[params.get('type')];
   let selected = exactCategory || categories.find((node) => node.category_key === requestedCategory);
   if (!selected && legacyParent) selected = categories.find((node) => node.parent_key === legacyParent);
   if (!selected) selected = categories[0];
