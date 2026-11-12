@@ -40,6 +40,17 @@
 .article-type{width:88px;text-align:center}
 
 .robotics-entry{padding:34px 24px 42px;background:linear-gradient(180deg,#fff 0%,#f5f8fc 100%)}
+.robotics-entry-container{max-width:1160px;margin:auto}
+.robotics-entry-container .robotics-entry-card{max-width:none;margin:0}
+.sdk-resources{margin-top:32px}
+.sdk-resources h2{margin:0 0 20px;font-size:25px;color:var(--ink)}
+.sdk-resource-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.sdk-resource-card{min-width:0;padding:28px;border:1px solid #d8e3f1;border-radius:22px;background:#fff;box-shadow:0 12px 32px rgba(16,42,83,.07);display:flex;flex-direction:column;align-items:flex-start}
+.sdk-resource-card h3{margin:0;font-size:23px;color:var(--ink)}
+.sdk-resource-card p{margin:12px 0 24px;color:var(--muted);line-height:1.7;flex:1}
+.sdk-resource-card a{padding:12px 18px;border-radius:11px;background:#18335f;color:#fff;font-weight:700}
+.sdk-resource-card a:hover{background:#315d9e}
+@media(max-width:700px){.sdk-resource-grid{grid-template-columns:1fr;gap:18px}.sdk-resource-card{padding:24px}}
 .robotics-entry-card{max-width:1160px;min-height:128px;margin:auto;padding:26px 34px;display:grid;grid-template-columns:180px 1fr auto;align-items:center;gap:28px;border:1px solid #d8e3f1;border-radius:22px;background:linear-gradient(120deg,#0c1b34 0%,#18335f 68%,#315d9e 100%);color:#fff;box-shadow:0 18px 45px rgba(16,42,83,.16);transition:transform .25s,box-shadow .25s}
 .robotics-entry-card:hover{transform:translateY(-3px);box-shadow:0 24px 55px rgba(16,42,83,.24)}
 .robotics-entry-kicker{font-size:12px;font-weight:800;letter-spacing:.18em;color:#9fc5ff}
