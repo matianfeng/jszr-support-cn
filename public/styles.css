@@ -38,6 +38,11 @@
 .search-result-item{transition:background .18s,transform .18s}.search-result-item:hover,.search-result-item:focus-visible{background:#f4f8ff;transform:translateX(3px);outline:0}.search-result-arrow{flex:none;color:#245aa9;font-size:22px;transition:transform .18s}.search-result-item:hover .search-result-arrow,.search-result-item:focus-visible .search-result-arrow{transform:translateX(3px)}
 /* Keep resource titles aligned when type labels have different lengths. */
 .article-type{width:88px;text-align:center}
+.hero{background:#26351a url("assets/hero-green-texture.png") center/cover no-repeat}
+.hero:before,.hero:after{display:none}
+.hero h1{color:#f6f8ef}
+.hero .eyebrow{color:#c8dca5}
+.hero .hero-subtitle{color:#d5dfc9}
 
 .robotics-entry{padding:34px 24px 42px;background:linear-gradient(180deg,#fff 0%,#f5f8fc 100%)}
 .robotics-entry-container{max-width:1160px;margin:auto}
